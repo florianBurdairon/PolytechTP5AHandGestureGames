@@ -2,15 +2,45 @@ from ultralytics import YOLO
 import cv2
 import math 
 import torch
+import os
+from roboflow import Roboflow
+import yaml
 
+def get_class_names(yaml_path):
+    with open(yaml_path, 'r') as file:
+        data = yaml.safe_load(file)
+    return data['names']
+
+def load_rock_paper_scissors_model():
+    if os.path.exists("model/rock-paper-scissors.pt"):
+        return load_model("rock-paper-scissors")
+    if not os.path.exists("data/rock-paper-scissors"):
+        rf = Roboflow(api_key="8DrZ8Cjqqu2mLaJM9iPH")
+        project = rf.workspace("roboflow-58fyf").project("rock-paper-scissors-sxsw")
+        version = project.version(11)
+        dataset = version.download("yolov8", "data/rock-paper-scissors")
+    return load_model("rock-paper-scissors")
+
+def train_and_save_model(model_name):
+    model = YOLO("yolo-Weights/yolov8n.pt")
+    model.train(data="data/" + model_name + "/data.yaml", epochs=10, batch=8, device="cuda")
+    model.save("model/" + model_name + ".pt")
+    return model
+
+def load_model(model_name):
+    if os.path.exists("model/" + model_name + ".pt"):
+        model = YOLO("model/" + model_name + ".pt")
+    else:
+        model = train_and_save_model(model_name)
+    return model
 
 def main():
     # model
-    model = YOLO("yolo-Weights/yolov8n.pt")
-    model.train(data="data/Hand Gesture.v6i.yolov5pytorch/data.yaml", epochs=10, batch=8, device="cuda")
+    model = load_model("hand-gesture")
+    # model = load_rock_paper_scissors_model()
 
     # object classes
-    classNames = ['Down', 'Left', 'Right', 'Stop', 'Thumbs Down', 'Thumbs up', 'Up']
+    # classNames = ['Down', 'Left', 'Right', 'Stop', 'Thumbs Down', 'Thumbs up', 'Up']
     # classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
     #               "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
     #               "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
@@ -22,6 +52,8 @@ def main():
     #               "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
     #               "teddy bear", "hair drier", "toothbrush"
     #               ]
+    classNames = get_class_names("data/hand-gesture/data.yaml")
+    # classNames = get_class_names("data/rock-paper-scissors/data.yaml")
     print("Classes --->",classNames.__len__())
 
     # start webcam
