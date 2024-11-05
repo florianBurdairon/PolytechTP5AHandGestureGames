@@ -12,14 +12,17 @@ def get_class_names(yaml_path):
     return data['names']
 
 def load_rock_paper_scissors_model():
-    if os.path.exists("model/rock-paper-scissors.pt"):
-        return load_model("rock-paper-scissors")
-    if not os.path.exists("data/rock-paper-scissors"):
+    return load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, "rock-paper-scissors")
+
+def load_model_from_roboflow(workspace, project_name, version_number, model_name):
+    if os.path.exists("model/" + model_name + ".pt"):
+        return YOLO("model/" + model_name + ".pt")
+    if not os.path.exists("data/" + model_name):
         rf = Roboflow(api_key="8DrZ8Cjqqu2mLaJM9iPH")
-        project = rf.workspace("roboflow-58fyf").project("rock-paper-scissors-sxsw")
-        version = project.version(11)
-        dataset = version.download("yolov8", "data/rock-paper-scissors")
-    return load_model("rock-paper-scissors")
+        project = rf.workspace(workspace).project(project_name)
+        version = project.version(version_number)
+        dataset = version.download("yolov8", "data/" + model_name)
+    return train_and_save_model(model_name)
 
 def train_and_save_model(model_name):
     model = YOLO("yolo-Weights/yolov8n.pt")
@@ -36,8 +39,8 @@ def load_model(model_name):
 
 def main():
     # model
-    model = load_model("hand-gesture")
-    # model = load_rock_paper_scissors_model()
+    # model = load_model("hand-gesture")
+    model = load_rock_paper_scissors_model()
 
     # object classes
     # classNames = ['Down', 'Left', 'Right', 'Stop', 'Thumbs Down', 'Thumbs up', 'Up']
@@ -52,7 +55,7 @@ def main():
     #               "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
     #               "teddy bear", "hair drier", "toothbrush"
     #               ]
-    classNames = get_class_names("data/hand-gesture/data.yaml")
+    classNames = get_class_names("data/rock-paper-scissors/data.yaml")
     # classNames = get_class_names("data/rock-paper-scissors/data.yaml")
     print("Classes --->",classNames.__len__())
 
