@@ -11,18 +11,16 @@ def get_class_names(yaml_path):
         data = yaml.safe_load(file)
     return data['names']
 
-def load_rock_paper_scissors_model():
-    return load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, "rock-paper-scissors")
-
-def load_model_from_roboflow(workspace, project_name, version_number, model_name):
+def load_model_from_roboflow(workspace, project_name, version_number, model_name) -> tuple[YOLO, any]:
+    classNames = get_class_names("data/" + model_name + "/data.yaml")
     if os.path.exists("model/" + model_name + ".pt"):
-        return YOLO("model/" + model_name + ".pt")
+        return YOLO("model/" + model_name + ".pt"), classNames
     if not os.path.exists("data/" + model_name):
         rf = Roboflow(api_key="8DrZ8Cjqqu2mLaJM9iPH")
         project = rf.workspace(workspace).project(project_name)
         version = project.version(version_number)
         dataset = version.download("yolov8", "data/" + model_name)
-    return train_and_save_model(model_name)
+    return train_and_save_model(model_name), classNames
 
 def train_and_save_model(model_name):
     model = YOLO("yolo-Weights/yolov8n.pt")
@@ -30,47 +28,61 @@ def train_and_save_model(model_name):
     model.save("model/" + model_name + ".pt")
     return model
 
-def load_model(model_name):
+def load_model(model_name) -> tuple[YOLO, any]:
+    classNames = get_class_names("data/" + model_name + "/data.yaml")
     if os.path.exists("model/" + model_name + ".pt"):
         model = YOLO("model/" + model_name + ".pt")
     else:
         model = train_and_save_model(model_name)
-    return model
+    return model, classNames
 
 def main():
-    # model
+    
+    model_name = "rock-paper-scissors"
+    print("Loading model " + model_name + "...")
     # model = load_model("hand-gesture")
-    model = load_rock_paper_scissors_model()
+    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name)
 
-    # object classes
-    # classNames = ['Down', 'Left', 'Right', 'Stop', 'Thumbs Down', 'Thumbs up', 'Up']
-    # classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
-    #               "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-    #               "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
-    #               "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
-    #               "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
-    #               "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
-    #               "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed",
-    #               "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone",
-    #               "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
-    #               "teddy bear", "hair drier", "toothbrush"
-    #               ]
-    classNames = get_class_names("data/rock-paper-scissors/data.yaml")
-    # classNames = get_class_names("data/rock-paper-scissors/data.yaml")
-    print("Classes --->",classNames.__len__())
+    print("Classes --->", classNames)
 
     # start webcam
     cap = cv2.VideoCapture(0)
-    cap.set(3, 640)
-    cap.set(4, 480)
+    cap.set(3, 1280)
+    cap.set(4, 720)
+
+    score_player1 = 0
+    score_player2 = 0
+    sign_player1 = ""
+    sign_player2 = ""
+    player1_first_detect = 100
+    player2_first_detect = 100
+
+    frame_count = 0
 
     while True:
         success, img = cap.read()
+
         if not success:
             print("Failed to capture image")
             continue
 
+        # Mirror the image horizontally
+        img = cv2.flip(img, 1)
+        
+        frame_count += 1
+
         results = model(img, stream=True)
+
+        # build ui with results
+        cv2.rectangle(img, (0, 0), (637, 720), (0, 0, 255), 3)
+        cv2.rectangle(img, (642, 0), (1280, 720), (255, 0, 0), 3)
+        cv2.putText(img, "Player 1: " + str(score_player1), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(img, "Player 2: " + str(score_player2), (652, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(img, sign_player1, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(img, sign_player2, (652, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+
+        # display progress bar
+        cv2.rectangle(img, (0, 700), (round(frame_count / 50 * 1280), 720), (0, 255, 0), -1)
 
         # coordinates
         for r in results:
@@ -81,9 +93,6 @@ def main():
                 x1, y1, x2, y2 = box.xyxy[0]
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2) # convert to int values
 
-                # put box in cam
-                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-
                 # confidence
                 confidence = math.ceil((box.conf[0]*100))/100
                 print("Confidence --->",confidence)
@@ -91,6 +100,28 @@ def main():
                 # class name
                 cls = int(box.cls[0])
                 print("Class name -->", classNames[cls])
+
+                x_mean = (x1 + x2) / 2
+
+                if x_mean < 640:
+                    if sign_player1 == "":
+                        player1_first_detect = frame_count
+                        sign_player1 = classNames[cls].lower()
+                    elif frame_count - player1_first_detect < 10:
+                        sign_player1 = classNames[cls].lower()
+                    else:
+                        continue
+                else:
+                    if sign_player2 == "":
+                        player2_first_detect = frame_count
+                        sign_player2 = classNames[cls].lower()
+                    elif frame_count - player2_first_detect < 10:
+                        sign_player2 = classNames[cls].lower()
+                    else:
+                        continue
+
+                # put box in cam
+                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
 
                 # object details
                 org = [x1, y1]
@@ -100,6 +131,25 @@ def main():
                 thickness = 2
 
                 cv2.putText(img, classNames[cls], org, font, fontScale, color, thickness)
+
+        if(frame_count >= 50):
+            if sign_player1 == "rock" and sign_player2 == "scissors":
+                score_player1 += 1
+            elif sign_player1 == "scissors" and sign_player2 == "rock":
+                score_player2 += 1
+            elif sign_player1 == "scissors" and sign_player2 == "paper":
+                score_player1 += 1
+            elif sign_player1 == "paper" and sign_player2 == "scissors":
+                score_player2 += 1
+            elif sign_player1 == "rock" and sign_player2 == "paper":
+                score_player2 += 1
+            elif sign_player1 == "paper" and sign_player2 == "rock":
+                score_player1 += 1
+            sign_player1 = ""
+            sign_player2 = ""
+            player1_first_detect = 100
+            player2_first_detect = 100
+            frame_count = 0
 
         cv2.imshow('Webcam', img)
         if cv2.waitKey(1) == ord('q'):
