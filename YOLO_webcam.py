@@ -12,14 +12,14 @@ def get_class_names(yaml_path):
     return data['names']
 
 def load_model_from_roboflow(workspace, project_name, version_number, model_name) -> tuple[YOLO, any]:
-    classNames = get_class_names("data/" + model_name + "/data.yaml")
-    if os.path.exists("model/" + model_name + ".pt"):
-        return YOLO("model/" + model_name + ".pt"), classNames
     if not os.path.exists("data/" + model_name):
         rf = Roboflow(api_key="8DrZ8Cjqqu2mLaJM9iPH")
         project = rf.workspace(workspace).project(project_name)
         version = project.version(version_number)
         dataset = version.download("yolov8", "data/" + model_name)
+    classNames = get_class_names("data/" + model_name + "/data.yaml")
+    if os.path.exists("model/" + model_name + ".pt"):
+        return YOLO("model/" + model_name + ".pt"), classNames
     return train_and_save_model(model_name), classNames
 
 def train_and_save_model(model_name):
@@ -59,7 +59,7 @@ def main():
 
     frame_count = 0
 
-    while True:
+    while cap.isOpened():
         success, img = cap.read()
 
         if not success:
@@ -151,7 +151,7 @@ def main():
             player2_first_detect = 100
             frame_count = 0
 
-        cv2.imshow('Webcam', img)
+        cv2.imshow('Rock Paper Scissors Game', img)
         if cv2.waitKey(1) == ord('q'):
             break
 
