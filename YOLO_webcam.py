@@ -6,12 +6,14 @@ import os
 from roboflow import Roboflow
 import yaml
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 def get_class_names(yaml_path):
     with open(yaml_path, 'r') as file:
         data = yaml.safe_load(file)
     return data['names']
 
-def load_model_from_roboflow(workspace, project_name, version_number, model_name) -> tuple[YOLO, any]:
+def load_model_from_roboflow(workspace, project_name, version_number, model_name,nb_epochs,batch_size) -> tuple[YOLO, any]:
     if not os.path.exists("data/" + model_name):
         rf = Roboflow(api_key="8DrZ8Cjqqu2mLaJM9iPH")
         project = rf.workspace(workspace).project(project_name)
@@ -20,20 +22,20 @@ def load_model_from_roboflow(workspace, project_name, version_number, model_name
     classNames = get_class_names("data/" + model_name + "/data.yaml")
     if os.path.exists("model/" + model_name + ".pt"):
         return YOLO("model/" + model_name + ".pt"), classNames
-    return train_and_save_model(model_name), classNames
+    return train_and_save_model(model_name,nb_epochs,batch_size), classNames
 
-def train_and_save_model(model_name):
+def train_and_save_model(model_name,nb_epochs=10,batch_size=8) -> YOLO:
     model = YOLO("yolo-Weights/yolov8n.pt")
-    model.train(data="data/" + model_name + "/data.yaml", epochs=10, batch=8, device="cuda")
+    model.train(data="data/" + model_name + "/data.yaml", epochs=nb_epochs, batch=batch_size, device=device)
     model.save("model/" + model_name + ".pt")
     return model
 
-def load_model(model_name) -> tuple[YOLO, any]:
+def load_model(model_name,nb_epochs,batch_size) -> tuple[YOLO, any]:
     classNames = get_class_names("data/" + model_name + "/data.yaml")
     if os.path.exists("model/" + model_name + ".pt"):
         model = YOLO("model/" + model_name + ".pt")
     else:
-        model = train_and_save_model(model_name)
+        model = train_and_save_model(model_name,nb_epochs,batch_size)
     return model, classNames
 
 def main():
@@ -41,7 +43,7 @@ def main():
     model_name = "rock-paper-scissors"
     print("Loading model " + model_name + "...")
     # model = load_model("hand-gesture")
-    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name)
+    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name, 10, 8)
 
     print("Classes --->", classNames)
 
@@ -159,5 +161,6 @@ def main():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     main()
