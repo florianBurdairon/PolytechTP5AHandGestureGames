@@ -1,3 +1,4 @@
+import sys
 from ultralytics import YOLO
 import cv2
 import math 
@@ -7,6 +8,19 @@ from roboflow import Roboflow
 import yaml
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+class SuppressOutput:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        self._original_stderr = sys.stderr
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stderr.close()
+        sys.stdout = self._original_stdout
+        sys.stderr = self._original_stderr
 
 def get_class_names(yaml_path):
     with open(yaml_path, 'r') as file:
@@ -20,20 +34,20 @@ def load_model_from_roboflow(workspace, project_name, version_number, model_name
         version = project.version(version_number)
         dataset = version.download("yolov8", "data/" + model_name)
     classNames = get_class_names("data/" + model_name + "/data.yaml")
-    if os.path.exists("model/" + model_name + ".pt"):
-        return YOLO("model/" + model_name + ".pt"), classNames
+    if os.path.exists("model/" + model_name + "_e" + str(nb_epochs) + "_b" + str(batch_size) + ".pt"):
+        return YOLO("model/" + model_name + "_e" + str(nb_epochs) + "_b" + str(batch_size) + ".pt"), classNames
     return train_and_save_model(model_name,nb_epochs,batch_size), classNames
 
 def train_and_save_model(model_name,nb_epochs=10,batch_size=8) -> YOLO:
     model = YOLO("yolo-Weights/yolov8n.pt")
     model.train(data="data/" + model_name + "/data.yaml", epochs=nb_epochs, batch=batch_size, device=device)
-    model.save("model/" + model_name + ".pt")
+    model.save("model/" + model_name + "_e" + str(nb_epochs) + "_b" + str(batch_size) + ".pt")
     return model
 
 def load_model(model_name,nb_epochs,batch_size) -> tuple[YOLO, any]:
     classNames = get_class_names("data/" + model_name + "/data.yaml")
-    if os.path.exists("model/" + model_name + ".pt"):
-        model = YOLO("model/" + model_name + ".pt")
+    if os.path.exists("model/" + model_name + "_e" + str(nb_epochs) + "_b" + str(batch_size) + ".pt"):
+        model = YOLO("model/" + model_name + "_e" + str(nb_epochs) + "_b" + str(batch_size) + ".pt")
     else:
         model = train_and_save_model(model_name,nb_epochs,batch_size)
     return model, classNames
@@ -43,7 +57,7 @@ def main():
     model_name = "rock-paper-scissors"
     print("Loading model " + model_name + "...")
     # model = load_model("hand-gesture")
-    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name, 10, 8)
+    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name, 20, 8)
 
     print("Classes --->", classNames)
 
@@ -73,7 +87,8 @@ def main():
         
         frame_count += 1
 
-        results = model(img, stream=True)
+        with SuppressOutput():
+            results = model(img, stream=True)
 
         # build ui with results
         cv2.rectangle(img, (0, 0), (637, 720), (0, 0, 255), 3)
