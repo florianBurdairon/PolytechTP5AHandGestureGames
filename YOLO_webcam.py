@@ -9,19 +9,6 @@ import yaml
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-class SuppressOutput:
-    def __enter__(self):
-        self._original_stdout = sys.stdout
-        self._original_stderr = sys.stderr
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        sys.stdout.close()
-        sys.stderr.close()
-        sys.stdout = self._original_stdout
-        sys.stderr = self._original_stderr
-
 def get_class_names(yaml_path):
     with open(yaml_path, 'r') as file:
         data = yaml.safe_load(file)
@@ -87,8 +74,7 @@ def main():
         
         frame_count += 1
 
-        with SuppressOutput():
-            results = model(img, stream=True)
+        results = model(img, stream=True)
 
         # build ui with results
         cv2.rectangle(img, (0, 0), (637, 720), (0, 0, 255), 3)
