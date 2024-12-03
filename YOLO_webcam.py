@@ -82,12 +82,12 @@ def main():
     # Loading model
     model_name = "rock-paper-scissors"
     print("Loading model " + model_name + "...")
-    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name, 20, 8)
+    model, classNames = load_model_from_roboflow("roboflow-58fyf", "rock-paper-scissors-sxsw", 11, model_name, 50, 8)
 
     print("Classes --->", classNames)
 
     # Start webcam
-    cap = cv2.VideoCapture("./vid_rock_paper_scissors.mov")
+    cap = cv2.VideoCapture(0)
     cap.set(3, 1280)
     cap.set(4, 720)
 
