@@ -1,4 +1,5 @@
-from ultralytics import YOLO
+# Import libraries 
+from ultralytics import YOLO, settings
 import cv2
 import math 
 import torch
@@ -6,7 +7,11 @@ import os
 from roboflow import Roboflow
 import yaml
 
+# Select the device to be used
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Select the directory where the datasets are stored
+settings.update(datasets_dir='.')
 
 def get_class_names(yaml_path):
     """Get class names from yaml file"""
